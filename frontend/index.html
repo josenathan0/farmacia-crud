@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Farmácia • Medicamentos</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">Rx</div>
+        <div>
+          <h1>Farmácia</h1>
+          <p>Cadastro de Medicamentos</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="navItem active" type="button">
+          <span class="navIcon">💊</span>
+          Medicamentos
+        </button>
+        <div class="hint">
+          <div class="hintTitle">Dica</div>
+          <div class="hintText">Use a busca para encontrar por nome, princípio ativo ou fabricante.</div>
+        </div>
+      </nav>
+
+      <div class="sidebarFooter">
+        <div class="miniStat">
+          <span class="miniStatLabel">Registros</span>
+          <strong id="countAll">0</strong>
+        </div>
+        <div class="miniStat">
+          <span class="miniStatLabel">Ativos</span>
+          <strong id="countActive">0</strong>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbarTitle">
+          <h2>Medicamentos</h2>
+          <span class="pill" id="pillStatus">Conectando…</span>
+        </div>
+
+        <div class="topbarActions">
+          <div class="search">
+            <span class="searchIcon">⌕</span>
+            <input id="searchInput" placeholder="Buscar (nome, princípio ativo, fabricante…)" />
+          </div>
+
+          <div class="segmented" role="tablist" aria-label="Filtros">
+            <button id="tabAtivos" class="seg active" type="button">Ativos</button>
+            <button id="tabExcluidos" class="seg" type="button" title="Requer soft delete no backend">Excluídos</button>
+          </div>
+
+          <button id="btnRecarregar" class="btn secondary" type="button">⟳ Recarregar</button>
+        </div>
+      </header>
+
+      <section class="grid2">
+        <div class="card">
+          <div class="cardHeader">
+            <div>
+              <h3 id="formTitle">Novo medicamento</h3>
+              <p>Preencha os dados e clique em salvar.</p>
+            </div>
+            <div class="badge">SQLite</div>
+          </div>
+
+          <form id="medForm" class="form">
+            <input type="hidden" id="medId" />
+
+            <div class="formGrid">
+              <label class="field">
+                <span>Nome <b>*</b></span>
+                <input id="nome" required placeholder="Ex: Dipirona" />
+              </label>
+
+              <label class="field">
+                <span>Princípio ativo <b>*</b></span>
+                <input id="principio_ativo" required placeholder="Ex: Metamizol" />
+              </label>
+
+              <label class="field">
+                <span>Dosagem <b>*</b></span>
+                <input id="dosagem" required placeholder="Ex: 500mg" />
+              </label>
+
+              <label class="field">
+                <span>Forma <b>*</b></span>
+                <input id="forma" required placeholder="Ex: Comprimido, Gotas…" />
+              </label>
+
+              <label class="field">
+                <span>Fabricante</span>
+                <input id="fabricante" placeholder="Ex: EMS" />
+              </label>
+
+              <label class="field">
+                <span>Lote</span>
+                <input id="lote" placeholder="Ex: A1234" />
+              </label>
+
+              <label class="field">
+                <span>Validade <b>*</b></span>
+                <input id="validade" type="date" required />
+              </label>
+
+              <label class="field">
+                <span>Quantidade</span>
+                <input id="quantidade" type="number" min="0" value="0" />
+              </label>
+
+              <label class="field">
+                <span>Preço (R$)</span>
+                <input id="preco" type="number" step="0.01" min="0" value="0" />
+              </label>
+            </div>
+
+            <div class="formActions">
+              <button class="btn" type="submit" id="btnSalvar">✔ Salvar</button>
+              <button class="btn secondary" type="button" id="btnCancelar">✖ Cancelar</button>
+            </div>
+
+            <div class="formFooter">
+              <span class="muted"><b>*</b> campos obrigatórios</span>
+              <span class="muted" id="status"></span>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="cardHeader">
+            <div>
+              <h3>Lista</h3>
+              <p>Visualize, edite ou remova registros.</p>
+            </div>
+            <div class="badge" id="badgeMode">Ativos</div>
+          </div>
+
+          <div class="tableWrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th style="width:64px;">ID</th>
+                  <th>Nome</th>
+                  <th>Princípio Ativo</th>
+                  <th style="width:110px;">Dosagem</th>
+                  <th style="width:120px;">Forma</th>
+                  <th style="width:120px;">Validade</th>
+                  <th style="width:80px;">Qtd</th>
+                  <th style="width:110px;">Preço</th>
+                  <th style="width:170px;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="empty" id="emptyState" hidden>
+            <div class="emptyIcon">🗂</div>
+            <div class="emptyTitle">Nada por aqui</div>
+            <div class="emptyText">Tente mudar o filtro ou a busca, ou cadastre um novo medicamento.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
