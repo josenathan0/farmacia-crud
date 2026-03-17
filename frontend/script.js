@@ -1,298 +1,713 @@
 const API = "http://localhost:3000";
 
-const medForm = document.getElementById("medForm");
-const medId = document.getElementById("medId");
+const STORAGE_KEYS = {
+  currentView: "aurafarma_current_view",
+  currentTab: "aurafarma_current_tab",
+};
 
-const nome = document.getElementById("nome");
-const principio_ativo = document.getElementById("principio_ativo");
-const dosagem = document.getElementById("dosagem");
-const forma = document.getElementById("forma");
-const fabricante = document.getElementById("fabricante");
-const lote = document.getElementById("lote");
-const validade = document.getElementById("validade");
-const quantidade = document.getElementById("quantidade");
-const preco = document.getElementById("preco");
+const state = {
+  medicamentos: [],
+  vendas: [],
+  currentTab: localStorage.getItem(STORAGE_KEYS.currentTab) || "ativos",
+  currentView: localStorage.getItem(STORAGE_KEYS.currentView) || "dashboardView",
+};
 
-const tbody = document.getElementById("tbody");
-const statusEl = document.getElementById("status");
-const pillStatus = document.getElementById("pillStatus");
-const badgeMode = document.getElementById("badgeMode");
+const els = {
+  navDashboard: document.getElementById("navDashboard"),
+  navMedicamentos: document.getElementById("navMedicamentos"),
+  dashboardView: document.getElementById("dashboardView"),
+  medicamentosView: document.getElementById("medicamentosView"),
+  goToMedicamentosBtn: document.getElementById("goToMedicamentosBtn"),
+  refreshAllBtn: document.getElementById("refreshAllBtn"),
 
-const formTitle = document.getElementById("formTitle");
-const btnCancelar = document.getElementById("btnCancelar");
-const btnRecarregar = document.getElementById("btnRecarregar");
+  apiStatus: document.getElementById("apiStatus"),
+  toast: document.getElementById("toast"),
 
-const searchInput = document.getElementById("searchInput");
-const tabAtivos = document.getElementById("tabAtivos");
-const tabExcluidos = document.getElementById("tabExcluidos");
+  tabAtivos: document.getElementById("tabAtivos"),
+  tabExcluidos: document.getElementById("tabExcluidos"),
+  recordsInfo: document.getElementById("recordsInfo"),
+  searchInput: document.getElementById("searchInput"),
+  reloadMedicamentosBtn: document.getElementById("reloadMedicamentosBtn"),
+  medTableBody: document.getElementById("medTableBody"),
 
-const countAll = document.getElementById("countAll");
-const countActive = document.getElementById("countActive");
+  medForm: document.getElementById("medForm"),
+  medId: document.getElementById("medId"),
+  formTitle: document.getElementById("formTitle"),
+  cancelEditBtn: document.getElementById("cancelEditBtn"),
 
-const emptyState = document.getElementById("emptyState");
-const toastEl = document.getElementById("toast");
+  nome: document.getElementById("nome"),
+  principio_ativo: document.getElementById("principio_ativo"),
+  dosagem: document.getElementById("dosagem"),
+  forma: document.getElementById("forma"),
+  fabricante: document.getElementById("fabricante"),
+  lote: document.getElementById("lote"),
+  validade: document.getElementById("validade"),
+  quantidade: document.getElementById("quantidade"),
+  preco: document.getElementById("preco"),
 
-let cache = [];
-let mode = "ativos"; 
+  kpiFaturamentoTotal: document.getElementById("kpiFaturamentoTotal"),
+  kpiFaturamentoMes: document.getElementById("kpiFaturamentoMes"),
+  kpiVendas: document.getElementById("kpiVendas"),
+  kpiItensVendidos: document.getElementById("kpiItensVendidos"),
+  kpiMedicamentosAtivos: document.getElementById("kpiMedicamentosAtivos"),
+  kpiEstoqueTotal: document.getElementById("kpiEstoqueTotal"),
+  kpiValorEstoque: document.getElementById("kpiValorEstoque"),
+  kpiMaisVendido: document.getElementById("kpiMaisVendido"),
 
-function toast(msg){
-  toastEl.textContent = msg;
-  toastEl.hidden = false;
-  clearTimeout(toastEl._t);
-  toastEl._t = setTimeout(()=> (toastEl.hidden = true), 2400);
+  topVendidos: document.getElementById("topVendidos"),
+  estoqueBaixo: document.getElementById("estoqueBaixo"),
+  vencendoLista: document.getElementById("vencendoLista"),
+  formasDistribuicao: document.getElementById("formasDistribuicao"),
+  ultimasVendasTable: document.getElementById("ultimasVendasTable"),
+
+  vendaForm: document.getElementById("vendaForm"),
+  vendaMedicamento: document.getElementById("vendaMedicamento"),
+  vendaQuantidade: document.getElementById("vendaQuantidade"),
+  vendaPreco: document.getElementById("vendaPreco"),
+};
+
+function persistState() {
+  localStorage.setItem(STORAGE_KEYS.currentView, state.currentView);
+  localStorage.setItem(STORAGE_KEYS.currentTab, state.currentTab);
 }
 
-function setStatus(msg) {
-  statusEl.textContent = msg;
+function showToast(message) {
+  if (!els.toast) return;
+  els.toast.textContent = message;
+  els.toast.classList.add("show");
+  clearTimeout(els.toast._timer);
+  els.toast._timer = setTimeout(() => {
+    els.toast.classList.remove("show");
+  }, 2600);
 }
 
-function setPill(msg, ok=true){
-  pillStatus.textContent = msg;
-  pillStatus.style.color = ok ? "#0f172a" : "#b91c1c";
+function setApiStatus(text, online = false) {
+  if (!els.apiStatus) return;
+  els.apiStatus.innerHTML = `
+    <span class="statusDot"></span>
+    <span>${text}</span>
+  `;
+  els.apiStatus.classList.toggle("online", online);
 }
 
-function limparFormulario() {
-  medId.value = "";
-  medForm.reset();
-  quantidade.value = 0;
-  preco.value = 0;
-  formTitle.textContent = "Novo medicamento";
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
 }
 
-function pegarDadosDoForm() {
+function formatDate(dateString) {
+  if (!dateString) return "—";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return dateString;
+  return date.toLocaleDateString("pt-BR");
+}
+
+function formatDateTime(dateString) {
+  if (!dateString) return "—";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return dateString;
+  return date.toLocaleString("pt-BR");
+}
+
+function daysUntil(dateString) {
+  if (!dateString) return null;
+  const now = new Date();
+  const target = new Date(dateString);
+  if (Number.isNaN(target.getTime())) return null;
+  const baseNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const baseTarget = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  const diffMs = baseTarget - baseNow;
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+}
+
+function getMedicamentosAtivos() {
+  return state.medicamentos.filter((m) => Number(m.deletado) !== 1);
+}
+
+function getMedicamentosExcluidos() {
+  return state.medicamentos.filter((m) => Number(m.deletado) === 1);
+}
+
+function getFilteredMedicamentos() {
+  const query = (els.searchInput?.value || "").trim().toLowerCase();
+  const base =
+    state.currentTab === "ativos"
+      ? getMedicamentosAtivos()
+      : getMedicamentosExcluidos();
+
+  return base.filter((m) => {
+    const text = [
+      m.nome,
+      m.principio_ativo,
+      m.fabricante,
+      m.forma,
+      m.dosagem,
+      m.lote,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return text.includes(query);
+  });
+}
+
+function setView(viewId) {
+  state.currentView = viewId;
+  persistState();
+
+  els.dashboardView?.classList.toggle("active", viewId === "dashboardView");
+  els.medicamentosView?.classList.toggle("active", viewId === "medicamentosView");
+
+  els.navDashboard?.classList.toggle("active", viewId === "dashboardView");
+  els.navMedicamentos?.classList.toggle("active", viewId === "medicamentosView");
+}
+
+function setMedicamentosTab(tab) {
+  state.currentTab = tab;
+  persistState();
+
+  els.tabAtivos?.classList.toggle("active", tab === "ativos");
+  els.tabExcluidos?.classList.toggle("active", tab === "excluidos");
+  renderMedicamentosTable();
+}
+
+function goToMedicamentos(tab = state.currentTab || "ativos") {
+  setView("medicamentosView");
+  setMedicamentosTab(tab);
+}
+
+function clearMedicamentoForm() {
+  if (!els.medForm) return;
+  els.medForm.reset();
+  if (els.medId) els.medId.value = "";
+  if (els.formTitle) els.formTitle.textContent = "Cadastrar medicamento";
+}
+
+function getMedicamentoFormData() {
   return {
-    nome: nome.value.trim(),
-    principio_ativo: principio_ativo.value.trim(),
-    dosagem: dosagem.value.trim(),
-    forma: forma.value.trim(),
-    fabricante: fabricante.value.trim(),
-    lote: lote.value.trim(),
-    validade: validade.value,
-    quantidade: Number(quantidade.value || 0),
-    preco: Number(preco.value || 0),
+    nome: els.nome?.value.trim() || "",
+    principio_ativo: els.principio_ativo?.value.trim() || "",
+    dosagem: els.dosagem?.value.trim() || "",
+    forma: els.forma?.value.trim() || "",
+    fabricante: els.fabricante?.value.trim() || "",
+    lote: els.lote?.value.trim() || "",
+    validade: els.validade?.value || "",
+    quantidade: Number(els.quantidade?.value || 0),
+    preco: Number(els.preco?.value || 0),
   };
 }
 
-function formatBRL(v){
-  const n = Number(v || 0);
-  return `R$ ${n.toFixed(2)}`;
+function validateMedicamento(data) {
+  if (!data.nome || !data.principio_ativo || !data.dosagem || !data.forma || !data.validade) {
+    throw new Error("Preencha todos os campos obrigatórios.");
+  }
+
+  if (data.quantidade < 0) {
+    throw new Error("A quantidade não pode ser negativa.");
+  }
+
+  if (data.preco < 0) {
+    throw new Error("O preço não pode ser negativo.");
+  }
 }
 
-function matchesSearch(m, q){
-  if (!q) return true;
-  const hay = `${m.nome} ${m.principio_ativo} ${m.fabricante} ${m.dosagem} ${m.forma} ${m.lote}`.toLowerCase();
-  return hay.includes(q.toLowerCase());
+async function apiFetch(path, options = {}) {
+  const response = await fetch(`${API}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+
+  if (!response.ok) {
+    let errorMessage = "Erro na requisição.";
+    try {
+      const payload = await response.json();
+      errorMessage = payload.error || payload.message || errorMessage;
+    } catch {
+      // ignora
+    }
+    throw new Error(errorMessage);
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+  return null;
 }
 
-function renderTabela(lista){
-  tbody.innerHTML = "";
+async function loadMedicamentos() {
+  const data = await apiFetch("/medicamentos");
+  state.medicamentos = Array.isArray(data) ? data : [];
+}
 
-  if (!lista.length){
-    emptyState.hidden = false;
+async function loadVendas() {
+  try {
+    const data = await apiFetch("/vendas");
+    state.vendas = Array.isArray(data) ? data : [];
+  } catch {
+    state.vendas = [];
+  }
+}
+
+function renderMedicamentosTable() {
+  if (!els.medTableBody) return;
+
+  const lista = getFilteredMedicamentos();
+
+  if (!lista.length) {
+    els.medTableBody.innerHTML = `
+      <tr>
+        <td colspan="8" class="tableEmpty">Nenhum medicamento encontrado.</td>
+      </tr>
+    `;
+  } else {
+    els.medTableBody.innerHTML = lista
+      .map((m) => {
+        const statusBadge =
+          Number(m.deletado) === 1
+            ? `<span class="badge danger">Excluído</span>`
+            : Number(m.quantidade) <= 5
+            ? `<span class="badge warning">Estoque baixo</span>`
+            : `<span class="badge success">Ativo</span>`;
+
+        const actions =
+          Number(m.deletado) === 1
+            ? `<button class="actionBtn restore" data-restore="${m.id}" type="button">Restaurar</button>`
+            : `
+              <button class="actionBtn edit" data-edit="${m.id}" type="button">Editar</button>
+              <button class="actionBtn delete" data-delete="${m.id}" type="button">Excluir</button>
+            `;
+
+        return `
+          <tr>
+            <td>${m.nome || "—"}</td>
+            <td>${m.principio_ativo || "—"}</td>
+            <td>${m.forma || "—"}</td>
+            <td>${Number(m.quantidade || 0)}</td>
+            <td>${formatCurrency(m.preco)}</td>
+            <td>${formatDate(m.validade)}</td>
+            <td>${statusBadge}</td>
+            <td><div class="rowActions">${actions}</div></td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+
+  if (els.recordsInfo) {
+    els.recordsInfo.textContent = `${lista.length} registro(s) encontrados`;
+  }
+
+  populateVendaMedicamentoOptions();
+}
+
+function populateVendaMedicamentoOptions() {
+  if (!els.vendaMedicamento) return;
+
+  const ativos = getMedicamentosAtivos();
+
+  els.vendaMedicamento.innerHTML = `
+    <option value="">Selecione um medicamento</option>
+    ${ativos
+      .map(
+        (m) => `
+          <option value="${m.id}" data-preco="${Number(m.preco || 0)}">
+            ${m.nome} • estoque: ${Number(m.quantidade || 0)} • ${formatCurrency(m.preco)}
+          </option>
+        `
+      )
+      .join("")}
+  `;
+}
+
+function renderDashboard() {
+  const ativos = getMedicamentosAtivos();
+  const vendas = state.vendas;
+
+  const totalVendas = vendas.length;
+  const totalItensVendidos = vendas.reduce((sum, v) => sum + Number(v.quantidade || 0), 0);
+  const faturamentoTotal = vendas.reduce((sum, v) => sum + Number(v.total || 0), 0);
+
+  const now = new Date();
+  const mesAtual = vendas.filter((v) => {
+    const d = new Date(v.vendido_em);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+
+  const faturamentoMes = mesAtual.reduce((sum, v) => sum + Number(v.total || 0), 0);
+
+  const estoqueTotal = ativos.reduce((sum, m) => sum + Number(m.quantidade || 0), 0);
+  const valorEstoque = ativos.reduce(
+    (sum, m) => sum + Number(m.quantidade || 0) * Number(m.preco || 0),
+    0
+  );
+
+  const topMap = new Map();
+  for (const venda of vendas) {
+    const nome = venda.nome || "Medicamento sem nome";
+    const current = topMap.get(nome) || { nome, quantidade: 0, total: 0 };
+    current.quantidade += Number(venda.quantidade || 0);
+    current.total += Number(venda.total || 0);
+    topMap.set(nome, current);
+  }
+
+  const ranking = [...topMap.values()].sort((a, b) => b.quantidade - a.quantidade);
+  const maisVendido = ranking[0]?.nome || "—";
+
+  if (els.kpiFaturamentoTotal) els.kpiFaturamentoTotal.textContent = formatCurrency(faturamentoTotal);
+  if (els.kpiFaturamentoMes) els.kpiFaturamentoMes.textContent = formatCurrency(faturamentoMes);
+  if (els.kpiVendas) els.kpiVendas.textContent = String(totalVendas);
+  if (els.kpiItensVendidos) els.kpiItensVendidos.textContent = String(totalItensVendidos);
+  if (els.kpiMedicamentosAtivos) els.kpiMedicamentosAtivos.textContent = String(ativos.length);
+  if (els.kpiEstoqueTotal) els.kpiEstoqueTotal.textContent = String(estoqueTotal);
+  if (els.kpiValorEstoque) els.kpiValorEstoque.textContent = formatCurrency(valorEstoque);
+  if (els.kpiMaisVendido) els.kpiMaisVendido.textContent = maisVendido;
+
+  renderTopVendidos(ranking);
+  renderEstoqueBaixo(ativos);
+  renderVencendo(ativos);
+  renderFormas(ativos);
+  renderUltimasVendas(vendas);
+}
+
+function renderTopVendidos(ranking) {
+  if (!els.topVendidos) return;
+
+  if (!ranking.length) {
+    els.topVendidos.innerHTML = `<div class="emptyMini">Sem dados de vendas até o momento.</div>`;
     return;
   }
 
-  emptyState.hidden = true;
+  els.topVendidos.innerHTML = ranking
+    .slice(0, 5)
+    .map(
+      (item, index) => `
+        <div class="rankItem">
+          <div class="rankPos">${index + 1}</div>
+          <div class="rankInfo">
+            <strong>${item.nome}</strong>
+            <span>${formatCurrency(item.total)} em vendas</span>
+          </div>
+          <div class="rankValue">${item.quantidade}</div>
+        </div>
+      `
+    )
+    .join("");
+}
 
-  for (const m of lista) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td><span class="chip">#${m.id}</span></td>
-      <td>${m.nome}</td>
-      <td>${m.principio_ativo}</td>
-      <td>${m.dosagem}</td>
-      <td>${m.forma}</td>
-      <td>${m.validade}</td>
-      <td>${m.quantidade}</td>
-      <td>${formatBRL(m.preco)}</td>
-      <td class="actionsCell">
-        <button class="btn secondary" data-edit="${m.id}">✎ Editar</button>
-        <button class="btn secondary" data-del="${m.id}">🗑 Excluir</button>
-      </td>
+function renderEstoqueBaixo(ativos) {
+  if (!els.estoqueBaixo) return;
+
+  const baixos = ativos
+    .filter((m) => Number(m.quantidade || 0) <= 5)
+    .sort((a, b) => Number(a.quantidade || 0) - Number(b.quantidade || 0))
+    .slice(0, 6);
+
+  if (!baixos.length) {
+    els.estoqueBaixo.innerHTML = `<div class="emptyMini">Nenhum item com estoque baixo.</div>`;
+    return;
+  }
+
+  els.estoqueBaixo.innerHTML = baixos
+    .map(
+      (m) => `
+        <div class="listItem">
+          <div class="listItemMain">
+            <strong>${m.nome}</strong>
+            <span>${m.forma || "Forma não informada"}</span>
+          </div>
+          <div class="listItemSide">${Number(m.quantidade || 0)} un.</div>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function renderVencendo(ativos) {
+  if (!els.vencendoLista) return;
+
+  const vencendo = ativos
+    .map((m) => ({ ...m, dias: daysUntil(m.validade) }))
+    .filter((m) => m.dias !== null && m.dias <= 30)
+    .sort((a, b) => a.dias - b.dias)
+    .slice(0, 6);
+
+  if (!vencendo.length) {
+    els.vencendoLista.innerHTML = `<div class="emptyMini">Nenhum medicamento próximo do vencimento.</div>`;
+    return;
+  }
+
+  els.vencendoLista.innerHTML = vencendo
+    .map(
+      (m) => `
+        <div class="listItem">
+          <div class="listItemMain">
+            <strong>${m.nome}</strong>
+            <span>Validade: ${formatDate(m.validade)}</span>
+          </div>
+          <div class="listItemSide">${m.dias < 0 ? "Vencido" : `${m.dias} dia(s)`}</div>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function renderFormas(ativos) {
+  if (!els.formasDistribuicao) return;
+
+  const map = new Map();
+  for (const item of ativos) {
+    const key = item.forma || "Não informado";
+    map.set(key, (map.get(key) || 0) + Number(item.quantidade || 0));
+  }
+
+  const rows = [...map.entries()]
+    .map(([forma, quantidade]) => ({ forma, quantidade }))
+    .sort((a, b) => b.quantidade - a.quantidade);
+
+  if (!rows.length) {
+    els.formasDistribuicao.innerHTML = `<div class="emptyMini">Sem dados para exibir.</div>`;
+    return;
+  }
+
+  const max = rows[0].quantidade || 1;
+
+  els.formasDistribuicao.innerHTML = rows
+    .map(
+      (row) => `
+        <div class="barItem">
+          <div class="barLabel">${row.forma}</div>
+          <div class="barTrack">
+            <div class="barFill" style="width:${(row.quantidade / max) * 100}%"></div>
+          </div>
+          <div class="barValue">${row.quantidade}</div>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function renderUltimasVendas(vendas) {
+  if (!els.ultimasVendasTable) return;
+
+  const ultimas = [...vendas]
+    .sort((a, b) => new Date(b.vendido_em) - new Date(a.vendido_em))
+    .slice(0, 8);
+
+  if (!ultimas.length) {
+    els.ultimasVendasTable.innerHTML = `
+      <tr>
+        <td colspan="5" class="tableEmpty">Nenhuma venda registrada.</td>
+      </tr>
     `;
-    tbody.appendChild(tr);
-  }
-}
-
-function aplicarFiltros(){
-  const q = searchInput.value.trim();
-  let lista = cache;
-
-
-  if (cache.length && Object.prototype.hasOwnProperty.call(cache[0], "deletado")) {
-    lista = cache.filter(m => (mode === "ativos" ? Number(m.deletado) === 0 : Number(m.deletado) === 1));
-  } else if (mode === "excluidos") {
-    lista = [];
+    return;
   }
 
-  lista = lista.filter(m => matchesSearch(m, q));
-  renderTabela(lista);
-
-  countAll.textContent = String(cache.length);
-  const ativos = cache.length && Object.prototype.hasOwnProperty.call(cache[0], "deletado")
-    ? cache.filter(m => Number(m.deletado) === 0).length
-    : cache.length;
-  countActive.textContent = String(ativos);
-
-  badgeMode.textContent = mode === "ativos" ? "Ativos" : "Excluídos";
-  setStatus(`Carregado: ${lista.length} medicamento(s) (${badgeMode.textContent.toLowerCase()}).`);
+  els.ultimasVendasTable.innerHTML = ultimas
+    .map(
+      (v) => `
+        <tr>
+          <td>${v.nome || "Medicamento sem nome"}</td>
+          <td>${Number(v.quantidade || 0)}</td>
+          <td>${formatCurrency(v.preco_unitario)}</td>
+          <td>${formatCurrency(v.total)}</td>
+          <td>${formatDateTime(v.vendido_em)}</td>
+        </tr>
+      `
+    )
+    .join("");
 }
 
-async function listar() {
-  setStatus("Carregando lista...");
-  setPill("Conectando…");
-  try{
-    const res = await fetch(`${API}/medicamentos`);
-    if (!res.ok) throw new Error("Falha ao buscar dados da API.");
-    cache = await res.json();
-    setPill("API conectada ✅", true);
-    aplicarFiltros();
-  }catch(err){
-    setPill("API offline ❌", false);
-    setStatus("Erro: " + err.message);
-    toast("Não consegui conectar na API. Verifique o backend.");
-    cache = [];
-    aplicarFiltros();
-  }
-}
-
-async function criar(medicamento) {
-  const res = await fetch(`${API}/medicamentos`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(medicamento),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao criar");
-  }
-}
-
-async function atualizar(id, medicamento) {
-  const res = await fetch(`${API}/medicamentos/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(medicamento),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao atualizar");
-  }
-}
-
-async function remover(id) {
-  const res = await fetch(`${API}/medicamentos/${id}`, { method: "DELETE" });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Erro ao remover");
-  }
-}
-
-async function carregarParaEdicao(id) {
-  const res = await fetch(`${API}/medicamentos/${id}`);
-  if (!res.ok) throw new Error("Não achei o medicamento.");
-
-  const m = await res.json();
-
-  medId.value = m.id;
-  nome.value = m.nome;
-  principio_ativo.value = m.principio_ativo;
-  dosagem.value = m.dosagem;
-  forma.value = m.forma;
-  fabricante.value = m.fabricante || "";
-  lote.value = m.lote || "";
-  validade.value = m.validade;
-  quantidade.value = m.quantidade;
-  preco.value = m.preco;
-
-  formTitle.textContent = `Editando #${m.id}`;
-  toast(`Editando: ${m.nome}`);
-}
-
-medForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
+async function refreshAll(options = {}) {
+  const keepView = options.keepView || state.currentView || "dashboardView";
+  const keepTab = options.keepTab || state.currentTab || "ativos";
 
   try {
-    const dados = pegarDadosDoForm();
+    setApiStatus("API conectando...", false);
+    await loadMedicamentos();
+    await loadVendas();
 
-    if (!dados.nome || !dados.principio_ativo || !dados.dosagem || !dados.forma || !dados.validade) {
-      toast("Preencha os campos obrigatórios.");
+    state.currentView = keepView;
+    state.currentTab = keepTab;
+    persistState();
+
+    renderDashboard();
+    setView(keepView);
+    setMedicamentosTab(keepTab);
+
+    setApiStatus("API conectada", true);
+  } catch (error) {
+    setApiStatus("API offline", false);
+    showToast(error.message || "Erro ao carregar dados.");
+    console.error(error);
+  }
+}
+
+async function handleMedicamentoSubmit(event) {
+  event.preventDefault();
+
+  try {
+    const payload = getMedicamentoFormData();
+    validateMedicamento(payload);
+
+    if (els.medId?.value) {
+      await apiFetch(`/medicamentos/${els.medId.value}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      showToast("Medicamento atualizado com sucesso.");
+    } else {
+      await apiFetch("/medicamentos", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      showToast("Medicamento cadastrado com sucesso.");
+    }
+
+    clearMedicamentoForm();
+    goToMedicamentos(state.currentTab);
+    await refreshAll({ keepView: "medicamentosView", keepTab: state.currentTab });
+    goToMedicamentos(state.currentTab);
+  } catch (error) {
+    showToast(error.message || "Erro ao salvar medicamento.");
+  }
+}
+
+async function handleTableClick(event) {
+  const button = event.target.closest("button");
+  if (!button) return;
+
+  const editId = button.getAttribute("data-edit");
+  const deleteId = button.getAttribute("data-delete");
+  const restoreId = button.getAttribute("data-restore");
+
+  try {
+    if (editId) {
+      const medicamento = state.medicamentos.find((m) => String(m.id) === String(editId));
+      if (!medicamento) throw new Error("Medicamento não encontrado.");
+
+      els.medId.value = medicamento.id;
+      els.nome.value = medicamento.nome || "";
+      els.principio_ativo.value = medicamento.principio_ativo || "";
+      els.dosagem.value = medicamento.dosagem || "";
+      els.forma.value = medicamento.forma || "";
+      els.fabricante.value = medicamento.fabricante || "";
+      els.lote.value = medicamento.lote || "";
+      els.validade.value = medicamento.validade || "";
+      els.quantidade.value = medicamento.quantidade || 0;
+      els.preco.value = medicamento.preco || 0;
+      els.formTitle.textContent = `Editando: ${medicamento.nome}`;
+      goToMedicamentos(state.currentTab);
+      showToast(`Editando ${medicamento.nome}`);
       return;
     }
 
-    if (medId.value) {
-      await atualizar(medId.value, dados);
-      toast("Atualizado com sucesso!");
-    } else {
-      await criar(dados);
-      toast("Criado com sucesso!");
-    }
-
-    limparFormulario();
-    await listar();
-  } catch (err) {
-    toast(err.message);
-    setStatus("Erro: " + err.message);
-  }
-});
-
-btnCancelar.addEventListener("click", () => {
-  limparFormulario();
-  toast("Edição cancelada.");
-});
-
-btnRecarregar.addEventListener("click", listar);
-
-searchInput.addEventListener("input", () => {
-  aplicarFiltros();
-});
-
-tabAtivos.addEventListener("click", () => {
-  mode = "ativos";
-  tabAtivos.classList.add("active");
-  tabExcluidos.classList.remove("active");
-  aplicarFiltros();
-});
-
-tabExcluidos.addEventListener("click", () => {
-  mode = "excluidos";
-  tabExcluidos.classList.add("active");
-  tabAtivos.classList.remove("active");
-  aplicarFiltros();
-  if (!cache.length || !Object.prototype.hasOwnProperty.call(cache[0], "deletado")) {
-    toast("Para ver excluídos, implemente soft delete no backend.");
-  }
-});
-
-tbody.addEventListener("click", async (e) => {
-  const btn = e.target.closest("button");
-  if (!btn) return;
-
-  const idEdit = btn.getAttribute("data-edit");
-  const idDel = btn.getAttribute("data-del");
-
-  try {
-    if (idEdit) {
-      await carregarParaEdicao(idEdit);
-      setStatus("Modo edição.");
-    }
-
-    if (idDel) {
-      const ok = confirm(`Tem certeza que deseja excluir o medicamento #${idDel}?`);
+    if (deleteId) {
+      const ok = window.confirm("Deseja realmente excluir este medicamento?");
       if (!ok) return;
 
-      await remover(idDel);
-      toast("Removido com sucesso!");
-      await listar();
+      await apiFetch(`/medicamentos/${deleteId}`, { method: "DELETE" });
+      showToast("Medicamento excluído com sucesso.");
+      goToMedicamentos("ativos");
+      await refreshAll({ keepView: "medicamentosView", keepTab: "ativos" });
+      goToMedicamentos("ativos");
+      return;
     }
-  } catch (err) {
-    toast(err.message);
-    setStatus("Erro: " + err.message);
-  }
-});
 
-// Inicializa
-listar();
+    if (restoreId) {
+      await apiFetch(`/medicamentos/${restoreId}/restaurar`, { method: "PATCH" });
+      showToast("Medicamento restaurado com sucesso.");
+      goToMedicamentos("excluidos");
+      await refreshAll({ keepView: "medicamentosView", keepTab: "excluidos" });
+      goToMedicamentos("excluidos");
+    }
+  } catch (error) {
+    showToast(error.message || "Erro ao processar ação.");
+  }
+}
+
+async function handleVendaSubmit(event) {
+  event.preventDefault();
+
+  try {
+    const medicamento_id = Number(els.vendaMedicamento?.value || 0);
+    const quantidade = Number(els.vendaQuantidade?.value || 0);
+    const preco_unitario = Number(els.vendaPreco?.value || 0);
+
+    if (!medicamento_id) throw new Error("Selecione um medicamento.");
+    if (quantidade <= 0) throw new Error("Informe uma quantidade válida.");
+    if (preco_unitario < 0) throw new Error("Informe um preço válido.");
+
+    await apiFetch("/vendas", {
+      method: "POST",
+      body: JSON.stringify({
+        medicamento_id,
+        quantidade,
+        preco_unitario,
+      }),
+    });
+
+    if (els.vendaForm) els.vendaForm.reset();
+    showToast("Venda registrada com sucesso.");
+    await refreshAll({ keepView: state.currentView, keepTab: state.currentTab });
+  } catch (error) {
+    showToast(error.message || "Erro ao registrar venda.");
+  }
+}
+
+function setupEvents() {
+  els.navDashboard?.addEventListener("click", () => setView("dashboardView"));
+  els.navMedicamentos?.addEventListener("click", () => goToMedicamentos(state.currentTab));
+
+  els.goToMedicamentosBtn?.addEventListener("click", () => {
+    goToMedicamentos("ativos");
+    clearMedicamentoForm();
+  });
+
+  els.refreshAllBtn?.addEventListener("click", () =>
+    refreshAll({ keepView: state.currentView, keepTab: state.currentTab })
+  );
+
+  els.reloadMedicamentosBtn?.addEventListener("click", () =>
+    refreshAll({ keepView: "medicamentosView", keepTab: state.currentTab })
+  );
+
+  els.tabAtivos?.addEventListener("click", () => goToMedicamentos("ativos"));
+  els.tabExcluidos?.addEventListener("click", () => goToMedicamentos("excluidos"));
+
+  els.searchInput?.addEventListener("input", renderMedicamentosTable);
+
+  els.cancelEditBtn?.addEventListener("click", () => {
+    clearMedicamentoForm();
+    goToMedicamentos(state.currentTab);
+    showToast("Edição cancelada.");
+  });
+
+  els.medForm?.addEventListener("submit", handleMedicamentoSubmit);
+  els.medTableBody?.addEventListener("click", handleTableClick);
+  els.vendaForm?.addEventListener("submit", handleVendaSubmit);
+
+  els.vendaMedicamento?.addEventListener("change", () => {
+    const selected = els.vendaMedicamento.selectedOptions[0];
+    if (!selected) return;
+    const preco = selected.getAttribute("data-preco");
+    if (preco && els.vendaPreco) {
+      els.vendaPreco.value = Number(preco).toFixed(2);
+    }
+  });
+}
+
+async function init() {
+  setupEvents();
+  setView(state.currentView);
+  setMedicamentosTab(state.currentTab);
+  await refreshAll({ keepView: state.currentView, keepTab: state.currentTab });
+}
+
+init();

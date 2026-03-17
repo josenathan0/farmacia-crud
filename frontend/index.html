@@ -1,178 +1,362 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Farmácia • Medicamentos</title>
+  <title>AuraFarma • Gestão Inteligente</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="app">
+  <div class="appShell">
     <aside class="sidebar">
-      <div class="brand">
-        <div class="logo">Rx</div>
-        <div>
-          <h1>Farmácia</h1>
-          <p>Cadastro de Medicamentos</p>
+      <div class="brandCard">
+        <div class="brand brandOnlyLogo">
+          <img src="logo-aurafarma.png" alt="Logo AuraFarma" class="brandLogoFull" />
+          <p class="brandSlogan">Farme sua aura, evolua sua saúde</p>
+          </div>
         </div>
-      </div>
 
-      <nav class="nav">
-        <button class="navItem active" type="button">
-          <span class="navIcon">💊</span>
-          Medicamentos
+      <nav class="sideNav">
+        <button class="navItem active" data-view="dashboardView" id="navDashboard">
+          <span class="navIcon">📊</span>
+          <span>Dashboard</span>
         </button>
-        <div class="hint">
-          <div class="hintTitle">Dica</div>
-          <div class="hintText">Use a busca para encontrar por nome, princípio ativo ou fabricante.</div>
-        </div>
+
+        <button class="navItem" data-view="medicamentosView" id="navMedicamentos">
+          <span class="navIcon">💊</span>
+          <span>Medicamentos</span>
+        </button>
       </nav>
 
       <div class="sidebarFooter">
-        <div class="miniStat">
-          <span class="miniStatLabel">Registros</span>
-          <strong id="countAll">0</strong>
-        </div>
-        <div class="miniStat">
-          <span class="miniStatLabel">Ativos</span>
-          <strong id="countActive">0</strong>
+        <div class="statusPill" id="apiStatus">
+          <span class="statusDot"></span>
+          <span>API conectando...</span>
         </div>
       </div>
     </aside>
 
-    <main class="main">
-      <header class="topbar">
-        <div class="topbarTitle">
-          <h2>Medicamentos</h2>
-          <span class="pill" id="pillStatus">Conectando…</span>
+    <main class="mainContent">
+      <header class="hero">
+        <div class="heroText">
+          <span class="eyebrow">AuraFarma</span>
+          <h2>Farme sua aura, evolua sua saúde</h2>
+          <p>
+            Gerencie medicamentos, acompanhe indicadores, monitore estoque e visualize
+            a operação da farmácia em uma experiência moderna e fluida.
+          </p>
         </div>
 
-        <div class="topbarActions">
-          <div class="search">
-            <span class="searchIcon">⌕</span>
-            <input id="searchInput" placeholder="Buscar (nome, princípio ativo, fabricante…)" />
-          </div>
-
-          <div class="segmented" role="tablist" aria-label="Filtros">
-            <button id="tabAtivos" class="seg active" type="button">Ativos</button>
-            <button id="tabExcluidos" class="seg" type="button" title="Requer soft delete no backend">Excluídos</button>
-          </div>
-
-          <button id="btnRecarregar" class="btn secondary" type="button">⟳ Recarregar</button>
+        <div class="heroActions">
+          <button class="btn btnSecondary" id="refreshAllBtn" type="button">Atualizar dados</button>
+          <button class="btn btnPrimary" id="goToMedicamentosBtn" type="button">Novo medicamento</button>
         </div>
       </header>
 
-      <section class="grid2">
-        <div class="card">
-          <div class="cardHeader">
-            <div>
-              <h3 id="formTitle">Novo medicamento</h3>
-              <p>Preencha os dados e clique em salvar.</p>
-            </div>
-            <div class="badge">SQLite</div>
+      <section class="view active" id="dashboardView">
+        <div class="sectionHeader">
+          <div>
+            <span class="sectionTag">Dashboard</span>
+            <h3>Visão geral do sistema</h3>
           </div>
-
-          <form id="medForm" class="form">
-            <input type="hidden" id="medId" />
-
-            <div class="formGrid">
-              <label class="field">
-                <span>Nome <b>*</b></span>
-                <input id="nome" required placeholder="Ex: Dipirona" />
-              </label>
-
-              <label class="field">
-                <span>Princípio ativo <b>*</b></span>
-                <input id="principio_ativo" required placeholder="Ex: Metamizol" />
-              </label>
-
-              <label class="field">
-                <span>Dosagem <b>*</b></span>
-                <input id="dosagem" required placeholder="Ex: 500mg" />
-              </label>
-
-              <label class="field">
-                <span>Forma <b>*</b></span>
-                <input id="forma" required placeholder="Ex: Comprimido, Gotas…" />
-              </label>
-
-              <label class="field">
-                <span>Fabricante</span>
-                <input id="fabricante" placeholder="Ex: EMS" />
-              </label>
-
-              <label class="field">
-                <span>Lote</span>
-                <input id="lote" placeholder="Ex: A1234" />
-              </label>
-
-              <label class="field">
-                <span>Validade <b>*</b></span>
-                <input id="validade" type="date" required />
-              </label>
-
-              <label class="field">
-                <span>Quantidade</span>
-                <input id="quantidade" type="number" min="0" value="0" />
-              </label>
-
-              <label class="field">
-                <span>Preço (R$)</span>
-                <input id="preco" type="number" step="0.01" min="0" value="0" />
-              </label>
-            </div>
-
-            <div class="formActions">
-              <button class="btn" type="submit" id="btnSalvar">✔ Salvar</button>
-              <button class="btn secondary" type="button" id="btnCancelar">✖ Cancelar</button>
-            </div>
-
-            <div class="formFooter">
-              <span class="muted"><b>*</b> campos obrigatórios</span>
-              <span class="muted" id="status"></span>
-            </div>
-          </form>
         </div>
 
-        <div class="card">
-          <div class="cardHeader">
-            <div>
-              <h3>Lista</h3>
-              <p>Visualize, edite ou remova registros.</p>
+        <div class="kpiGrid">
+          <article class="kpiCard">
+            <span class="kpiLabel">Faturamento total</span>
+            <strong class="kpiValue" id="kpiFaturamentoTotal">R$ 0,00</strong>
+            <small class="kpiHint">Total acumulado em vendas</small>
+          </article>
+
+          <article class="kpiCard">
+            <span class="kpiLabel">Faturamento do mês</span>
+            <strong class="kpiValue" id="kpiFaturamentoMes">R$ 0,00</strong>
+            <small class="kpiHint">Receita no mês atual</small>
+          </article>
+
+          <article class="kpiCard">
+            <span class="kpiLabel">Vendas realizadas</span>
+            <strong class="kpiValue" id="kpiVendas">0</strong>
+            <small class="kpiHint">Quantidade de vendas registradas</small>
+          </article>
+
+          <article class="kpiCard">
+            <span class="kpiLabel">Itens vendidos</span>
+            <strong class="kpiValue" id="kpiItensVendidos">0</strong>
+            <small class="kpiHint">Soma das unidades vendidas</small>
+          </article>
+
+          <article class="kpiCard">
+            <span class="kpiLabel">Medicamentos ativos</span>
+            <strong class="kpiValue" id="kpiMedicamentosAtivos">0</strong>
+            <small class="kpiHint">Produtos disponíveis no sistema</small>
+          </article>
+
+          <article class="kpiCard">
+            <span class="kpiLabel">Quantidade em estoque</span>
+            <strong class="kpiValue" id="kpiEstoqueTotal">0</strong>
+            <small class="kpiHint">Soma de todas as unidades</small>
+          </article>
+
+          <article class="kpiCard">
+            <span class="kpiLabel">Valor do estoque</span>
+            <strong class="kpiValue" id="kpiValorEstoque">R$ 0,00</strong>
+            <small class="kpiHint">Baseado no preço cadastrado</small>
+          </article>
+
+          <article class="kpiCard highlight">
+            <span class="kpiLabel">Mais vendido</span>
+            <strong class="kpiValue" id="kpiMaisVendido">—</strong>
+            <small class="kpiHint">Medicamento com maior saída</small>
+          </article>
+        </div>
+
+        <div class="dashboardGrid">
+          <article class="panelCard">
+            <div class="panelHeader">
+              <div>
+                <span class="sectionTag">Registrar venda</span>
+                <h4>Movimentar estoque</h4>
+              </div>
             </div>
-            <div class="badge" id="badgeMode">Ativos</div>
+
+            <form id="vendaForm" class="formGrid">
+              <div class="field full">
+                <label for="vendaMedicamento">Medicamento</label>
+                <select id="vendaMedicamento" required></select>
+              </div>
+
+              <div class="field">
+                <label for="vendaQuantidade">Quantidade</label>
+                <input type="number" id="vendaQuantidade" min="1" required />
+              </div>
+
+              <div class="field">
+                <label for="vendaPreco">Preço unitário (R$)</label>
+                <input type="number" id="vendaPreco" min="0" step="0.01" required />
+              </div>
+
+              <div class="field full">
+                <button class="btn btnPrimary" type="submit">Registrar venda</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="panelCard">
+            <div class="panelHeader">
+              <div>
+                <span class="sectionTag">Top saídas</span>
+                <h4>Medicamentos mais vendidos</h4>
+              </div>
+            </div>
+
+            <div id="topVendidos" class="rankingList">
+              <div class="emptyMini">Sem dados de vendas até o momento.</div>
+            </div>
+          </article>
+
+          <article class="panelCard">
+            <div class="panelHeader">
+              <div>
+                <span class="sectionTag">Atenção</span>
+                <h4>Estoque baixo</h4>
+              </div>
+            </div>
+
+            <div id="estoqueBaixo" class="simpleList">
+              <div class="emptyMini">Nenhum item com estoque baixo.</div>
+            </div>
+          </article>
+
+          <article class="panelCard">
+            <div class="panelHeader">
+              <div>
+                <span class="sectionTag">Validade</span>
+                <h4>Próximos do vencimento</h4>
+              </div>
+            </div>
+
+            <div id="vencendoLista" class="simpleList">
+              <div class="emptyMini">Nenhum medicamento próximo do vencimento.</div>
+            </div>
+          </article>
+
+          <article class="panelCard span2">
+            <div class="panelHeader">
+              <div>
+                <span class="sectionTag">Distribuição</span>
+                <h4>Estoque por forma farmacêutica</h4>
+              </div>
+            </div>
+
+            <div id="formasDistribuicao" class="barsWrap">
+              <div class="emptyMini">Sem dados para exibir.</div>
+            </div>
+          </article>
+
+          <article class="panelCard span2">
+            <div class="panelHeader">
+              <div>
+                <span class="sectionTag">Histórico</span>
+                <h4>Últimas vendas</h4>
+              </div>
+            </div>
+
+            <div class="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Medicamento</th>
+                    <th>Qtd.</th>
+                    <th>Preço unit.</th>
+                    <th>Total</th>
+                    <th>Data</th>
+                  </tr>
+                </thead>
+                <tbody id="ultimasVendasTable">
+                  <tr>
+                    <td colspan="5" class="tableEmpty">Nenhuma venda registrada.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="medicamentosView">
+        <div class="sectionHeader split">
+          <div>
+            <span class="sectionTag">Cadastro</span>
+            <h3>Gestão de medicamentos</h3>
           </div>
 
-          <div class="tableWrap">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th style="width:64px;">ID</th>
-                  <th>Nome</th>
-                  <th>Princípio Ativo</th>
-                  <th style="width:110px;">Dosagem</th>
-                  <th style="width:120px;">Forma</th>
-                  <th style="width:120px;">Validade</th>
-                  <th style="width:80px;">Qtd</th>
-                  <th style="width:110px;">Preço</th>
-                  <th style="width:170px;">Ações</th>
-                </tr>
-              </thead>
-              <tbody id="tbody"></tbody>
-            </table>
+          <div class="tabSwitch">
+            <button class="tabBtn active" id="tabAtivos" type="button">Ativos</button>
+            <button class="tabBtn" id="tabExcluidos" type="button">Excluídos</button>
           </div>
+        </div>
 
-          <div class="empty" id="emptyState" hidden>
-            <div class="emptyIcon">🗂</div>
-            <div class="emptyTitle">Nada por aqui</div>
-            <div class="emptyText">Tente mudar o filtro ou a busca, ou cadastre um novo medicamento.</div>
-          </div>
+        <div class="contentGrid">
+          <article class="panelCard">
+            <div class="panelHeader">
+              <div>
+                <span class="sectionTag">Formulário</span>
+                <h4 id="formTitle">Cadastrar medicamento</h4>
+              </div>
+            </div>
+
+            <form id="medForm" class="formGrid">
+              <input type="hidden" id="medId" />
+
+              <div class="field">
+                <label for="nome">Nome</label>
+                <input type="text" id="nome" required />
+              </div>
+
+              <div class="field">
+                <label for="principio_ativo">Princípio ativo</label>
+                <input type="text" id="principio_ativo" required />
+              </div>
+
+              <div class="field">
+                <label for="dosagem">Dosagem</label>
+                <input type="text" id="dosagem" required />
+              </div>
+
+              <div class="field">
+                <label for="forma">Forma</label>
+                <input type="text" id="forma" placeholder="Ex.: Comprimido, Xarope..." required />
+              </div>
+
+              <div class="field">
+                <label for="fabricante">Fabricante</label>
+                <input type="text" id="fabricante" />
+              </div>
+
+              <div class="field">
+                <label for="lote">Lote</label>
+                <input type="text" id="lote" />
+              </div>
+
+              <div class="field">
+                <label for="validade">Validade</label>
+                <input type="date" id="validade" required />
+              </div>
+
+              <div class="field">
+                <label for="quantidade">Quantidade</label>
+                <input type="number" id="quantidade" min="0" required />
+              </div>
+
+              <div class="field">
+                <label for="preco">Preço (R$)</label>
+                <input type="number" id="preco" min="0" step="0.01" required />
+              </div>
+
+              <div class="field full formActions">
+                <button class="btn btnPrimary" type="submit">Salvar medicamento</button>
+                <button class="btn btnGhost" id="cancelEditBtn" type="button">Cancelar edição</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="panelCard">
+            <div class="panelHeader">
+              <div>
+                <span class="sectionTag">Consulta</span>
+                <h4>Lista de medicamentos</h4>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <input
+                type="text"
+                id="searchInput"
+                class="searchInput"
+                placeholder="Buscar por nome, princípio ativo ou fabricante..."
+              />
+              <button class="btn btnSecondary" id="reloadMedicamentosBtn" type="button">Recarregar</button>
+            </div>
+
+            <div class="listMeta">
+              <span id="recordsInfo">0 registros encontrados</span>
+            </div>
+
+            <div class="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Princípio ativo</th>
+                    <th>Forma</th>
+                    <th>Qtd.</th>
+                    <th>Preço</th>
+                    <th>Validade</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="medTableBody">
+                  <tr>
+                    <td colspan="8" class="tableEmpty">Nenhum medicamento cadastrado.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
         </div>
       </section>
     </main>
   </div>
 
-  <div id="toast" class="toast" hidden></div>
+  <div id="toast" class="toast"></div>
 
   <script src="script.js"></script>
 </body>
