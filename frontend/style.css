@@ -176,35 +176,6 @@ img{
   font-size:17px;
 }
 
-.sidebarFooter{
-  margin-top:auto;
-}
-
-.statusPill{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  width:100%;
-  padding:12px 14px;
-  border-radius:14px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,.03);
-  color:var(--muted);
-  font-size:14px;
-}
-
-.statusDot{
-  width:10px;
-  height:10px;
-  border-radius:50%;
-  background:var(--warning);
-  box-shadow:0 0 14px rgba(255,191,105,.45);
-}
-
-.statusPill.online .statusDot{
-  background:var(--success);
-  box-shadow:0 0 14px rgba(73,209,125,.45);
-}
 
 .mainContent{
   display:flex;
