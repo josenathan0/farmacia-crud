@@ -1,4 +1,4 @@
-const API = "http://localhost:3000";
+const API = "";
 
 const STORAGE_KEYS = {
   currentView: "aurafarma_current_view",
