@@ -8,7 +8,9 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname));
+
+// --- CORREÇÃO 1: Aponta para a pasta frontend (voltar um nível '..') ---
+app.use(express.static(path.join(__dirname, '../frontend')));
 
 function allAsync(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -37,8 +39,9 @@ function runAsync(sql, params = []) {
   });
 }
 
+// --- CORREÇÃO 2: Rota principal buscando o HTML na pasta frontend ---
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, '../frontend', "index.html"));
 });
 
 app.get("/health", (req, res) => {
