@@ -10,6 +10,12 @@ const state = {
   vendas: [],
   currentTab: localStorage.getItem(STORAGE_KEYS.currentTab) || "ativos",
   currentView: localStorage.getItem(STORAGE_KEYS.currentView) || "dashboardView",
+  charts: {
+    topVendidos: null,
+    formas: null,
+    vendasPorDia: null,
+    estoqueMedicamentos: null,
+  },
 };
 
 const els = {
@@ -20,7 +26,6 @@ const els = {
   goToMedicamentosBtn: document.getElementById("goToMedicamentosBtn"),
   refreshAllBtn: document.getElementById("refreshAllBtn"),
 
-  apiStatus: document.getElementById("apiStatus"),
   toast: document.getElementById("toast"),
 
   tabAtivos: document.getElementById("tabAtivos"),
@@ -64,6 +69,11 @@ const els = {
   vendaMedicamento: document.getElementById("vendaMedicamento"),
   vendaQuantidade: document.getElementById("vendaQuantidade"),
   vendaPreco: document.getElementById("vendaPreco"),
+
+  chartTopVendidos: document.getElementById("chartTopVendidos"),
+  chartFormas: document.getElementById("chartFormas"),
+  chartVendasPorDia: document.getElementById("chartVendasPorDia"),
+  chartEstoqueMedicamentos: document.getElementById("chartEstoqueMedicamentos"),
 };
 
 function persistState() {
@@ -79,15 +89,6 @@ function showToast(message) {
   els.toast._timer = setTimeout(() => {
     els.toast.classList.remove("show");
   }, 2600);
-}
-
-function setApiStatus(text, online = false) {
-  if (!els.apiStatus) return;
-  els.apiStatus.innerHTML = `
-    <span class="statusDot"></span>
-    <span>${text}</span>
-  `;
-  els.apiStatus.classList.toggle("online", online);
 }
 
 function formatCurrency(value) {
@@ -229,7 +230,7 @@ async function apiFetch(path, options = {}) {
       const payload = await response.json();
       errorMessage = payload.error || payload.message || errorMessage;
     } catch {
-      // ignora
+      //
     }
     throw new Error(errorMessage);
   }
@@ -326,6 +327,212 @@ function populateVendaMedicamentoOptions() {
   `;
 }
 
+function destroyChart(chart) {
+  if (chart) chart.destroy();
+}
+
+function renderCharts(ativos, vendas, ranking) {
+  renderChartTopVendidos(ranking);
+  renderChartFormas(ativos);
+  renderChartVendasPorDia(vendas);
+  renderChartEstoqueMedicamentos(ativos);
+}
+
+function renderChartTopVendidos(ranking) {
+  if (!els.chartTopVendidos) return;
+
+  destroyChart(state.charts.topVendidos);
+
+  const top = ranking.slice(0, 5);
+  const labels = top.map((item) => item.nome);
+  const data = top.map((item) => item.quantidade);
+
+  state.charts.topVendidos = new Chart(els.chartTopVendidos, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Qtd. vendida",
+          data,
+          backgroundColor: [
+            "rgba(53,224,199,0.85)",
+            "rgba(58,140,255,0.85)",
+            "rgba(255,191,105,0.85)",
+            "rgba(255,107,122,0.85)",
+            "rgba(73,209,125,0.85)",
+          ],
+          borderRadius: 8,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: "#ecf3ff" } },
+      },
+      scales: {
+        x: {
+          ticks: { color: "#9fb0ca" },
+          grid: { color: "rgba(255,255,255,0.06)" },
+        },
+        y: {
+          ticks: { color: "#9fb0ca" },
+          grid: { color: "rgba(255,255,255,0.06)" },
+          beginAtZero: true,
+        },
+      },
+    },
+  });
+}
+
+function renderChartFormas(ativos) {
+  if (!els.chartFormas) return;
+
+  destroyChart(state.charts.formas);
+
+  const map = new Map();
+  for (const item of ativos) {
+    const key = item.forma || "Não informado";
+    map.set(key, (map.get(key) || 0) + Number(item.quantidade || 0));
+  }
+
+  const labels = [...map.keys()];
+  const data = [...map.values()];
+
+  state.charts.formas = new Chart(els.chartFormas, {
+    type: "pie",
+    data: {
+      labels,
+      datasets: [
+        {
+          data,
+          backgroundColor: [
+            "#35e0c7",
+            "#3a8cff",
+            "#ffbf69",
+            "#ff6b7a",
+            "#49d17d",
+            "#9b87f5",
+            "#f472b6",
+          ],
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: "#ecf3ff" },
+        },
+      },
+    },
+  });
+}
+
+function renderChartVendasPorDia(vendas) {
+  if (!els.chartVendasPorDia) return;
+
+  destroyChart(state.charts.vendasPorDia);
+
+  const map = new Map();
+
+  for (const venda of vendas) {
+    const date = new Date(venda.vendido_em);
+    if (Number.isNaN(date.getTime())) continue;
+    const label = date.toLocaleDateString("pt-BR");
+    map.set(label, (map.get(label) || 0) + Number(venda.total || 0));
+  }
+
+  const labels = [...map.keys()];
+  const data = [...map.values()];
+
+  state.charts.vendasPorDia = new Chart(els.chartVendasPorDia, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Vendas por dia (R$)",
+          data,
+          borderColor: "#35e0c7",
+          backgroundColor: "rgba(53,224,199,0.18)",
+          fill: true,
+          tension: 0.35,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: "#ecf3ff" } },
+      },
+      scales: {
+        x: {
+          ticks: { color: "#9fb0ca" },
+          grid: { color: "rgba(255,255,255,0.06)" },
+        },
+        y: {
+          ticks: { color: "#9fb0ca" },
+          grid: { color: "rgba(255,255,255,0.06)" },
+          beginAtZero: true,
+        },
+      },
+    },
+  });
+}
+
+function renderChartEstoqueMedicamentos(ativos) {
+  if (!els.chartEstoqueMedicamentos) return;
+
+  destroyChart(state.charts.estoqueMedicamentos);
+
+  const ordenados = [...ativos]
+    .sort((a, b) => Number(b.quantidade || 0) - Number(a.quantidade || 0))
+    .slice(0, 10);
+
+  const labels = ordenados.map((m) => m.nome);
+  const data = ordenados.map((m) => Number(m.quantidade || 0));
+
+  state.charts.estoqueMedicamentos = new Chart(els.chartEstoqueMedicamentos, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Qtd. em estoque",
+          data,
+          backgroundColor: "rgba(58,140,255,0.85)",
+          borderRadius: 8,
+        },
+      ],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: "#ecf3ff" } },
+      },
+      scales: {
+        x: {
+          ticks: { color: "#9fb0ca" },
+          grid: { color: "rgba(255,255,255,0.06)" },
+          beginAtZero: true,
+        },
+        y: {
+          ticks: { color: "#9fb0ca" },
+          grid: { color: "rgba(255,255,255,0.03)" },
+        },
+      },
+    },
+  });
+}
+
 function renderDashboard() {
   const ativos = getMedicamentosAtivos();
   const vendas = state.vendas;
@@ -341,7 +548,6 @@ function renderDashboard() {
   });
 
   const faturamentoMes = mesAtual.reduce((sum, v) => sum + Number(v.total || 0), 0);
-
   const estoqueTotal = ativos.reduce((sum, m) => sum + Number(m.quantidade || 0), 0);
   const valorEstoque = ativos.reduce(
     (sum, m) => sum + Number(m.quantidade || 0) * Number(m.preco || 0),
@@ -374,6 +580,7 @@ function renderDashboard() {
   renderVencendo(ativos);
   renderFormas(ativos);
   renderUltimasVendas(vendas);
+  renderCharts(ativos, vendas, ranking);
 }
 
 function renderTopVendidos(ranking) {
@@ -529,7 +736,6 @@ async function refreshAll(options = {}) {
   const keepTab = options.keepTab || state.currentTab || "ativos";
 
   try {
-    setApiStatus("API conectando...", false);
     await loadMedicamentos();
     await loadVendas();
 
@@ -540,10 +746,7 @@ async function refreshAll(options = {}) {
     renderDashboard();
     setView(keepView);
     setMedicamentosTab(keepTab);
-
-    setApiStatus("API conectada", true);
   } catch (error) {
-    setApiStatus("API offline", false);
     showToast(error.message || "Erro ao carregar dados.");
     console.error(error);
   }
@@ -573,7 +776,6 @@ async function handleMedicamentoSubmit(event) {
     clearMedicamentoForm();
     goToMedicamentos(state.currentTab);
     await refreshAll({ keepView: "medicamentosView", keepTab: state.currentTab });
-    goToMedicamentos(state.currentTab);
   } catch (error) {
     showToast(error.message || "Erro ao salvar medicamento.");
   }
@@ -614,18 +816,14 @@ async function handleTableClick(event) {
 
       await apiFetch(`/medicamentos/${deleteId}`, { method: "DELETE" });
       showToast("Medicamento excluído com sucesso.");
-      goToMedicamentos("ativos");
       await refreshAll({ keepView: "medicamentosView", keepTab: "ativos" });
-      goToMedicamentos("ativos");
       return;
     }
 
     if (restoreId) {
       await apiFetch(`/medicamentos/${restoreId}/restaurar`, { method: "PATCH" });
       showToast("Medicamento restaurado com sucesso.");
-      goToMedicamentos("excluidos");
       await refreshAll({ keepView: "medicamentosView", keepTab: "excluidos" });
-      goToMedicamentos("excluidos");
     }
   } catch (error) {
     showToast(error.message || "Erro ao processar ação.");

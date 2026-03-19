@@ -1,12 +1,14 @@
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 const db = require("./db");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(__dirname));
 
 function allAsync(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -36,7 +38,11 @@ function runAsync(sql, params = []) {
 }
 
 app.get("/", (req, res) => {
-  res.json({ message: "API AuraFarma online." });
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+app.get("/health", (req, res) => {
+  res.json({ ok: true, message: "API AuraFarma online." });
 });
 
 app.get("/medicamentos", async (req, res) => {
@@ -120,6 +126,17 @@ app.post("/medicamentos", async (req, res) => {
       return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
     }
 
+    const qtd = Number(quantidade ?? 0);
+    const valor = Number(preco ?? 0);
+
+    if (Number.isNaN(qtd) || qtd < 0) {
+      return res.status(400).json({ error: "Quantidade inválida." });
+    }
+
+    if (Number.isNaN(valor) || valor < 0) {
+      return res.status(400).json({ error: "Preço inválido." });
+    }
+
     const result = await runAsync(
       `
       INSERT INTO medicamentos (
@@ -140,19 +157,19 @@ app.post("/medicamentos", async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `,
       [
-        nome,
-        principio_ativo,
-        dosagem,
-        forma,
-        fabricante || "",
-        lote || "",
+        nome.trim(),
+        principio_ativo.trim(),
+        dosagem.trim(),
+        forma.trim(),
+        (fabricante || "").trim(),
+        (lote || "").trim(),
         validade,
-        Number(quantidade || 0),
-        Number(preco || 0),
+        qtd,
+        valor,
       ]
     );
 
-    const novo = await getAsync("SELECT * FROM medicamentos WHERE id = ?", [result.lastID]);
+    const novo = await getAsync(`SELECT * FROM medicamentos WHERE id = ?`, [result.lastID]);
     res.status(201).json(novo);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -177,6 +194,17 @@ app.put("/medicamentos/:id", async (req, res) => {
       return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
     }
 
+    const qtd = Number(quantidade ?? 0);
+    const valor = Number(preco ?? 0);
+
+    if (Number.isNaN(qtd) || qtd < 0) {
+      return res.status(400).json({ error: "Quantidade inválida." });
+    }
+
+    if (Number.isNaN(valor) || valor < 0) {
+      return res.status(400).json({ error: "Preço inválido." });
+    }
+
     const result = await runAsync(
       `
       UPDATE medicamentos
@@ -194,15 +222,15 @@ app.put("/medicamentos/:id", async (req, res) => {
       WHERE id = ?
       `,
       [
-        nome,
-        principio_ativo,
-        dosagem,
-        forma,
-        fabricante || "",
-        lote || "",
+        nome.trim(),
+        principio_ativo.trim(),
+        dosagem.trim(),
+        forma.trim(),
+        (fabricante || "").trim(),
+        (lote || "").trim(),
         validade,
-        Number(quantidade || 0),
-        Number(preco || 0),
+        qtd,
+        valor,
         req.params.id,
       ]
     );
@@ -211,7 +239,7 @@ app.put("/medicamentos/:id", async (req, res) => {
       return res.status(404).json({ error: "Medicamento não encontrado." });
     }
 
-    const atualizado = await getAsync("SELECT * FROM medicamentos WHERE id = ?", [req.params.id]);
+    const atualizado = await getAsync(`SELECT * FROM medicamentos WHERE id = ?`, [req.params.id]);
     res.json(atualizado);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -292,29 +320,30 @@ app.post("/vendas", async (req, res) => {
   try {
     const { medicamento_id, quantidade, preco_unitario } = req.body;
 
-    if (!medicamento_id) {
+    const idMedicamento = Number(medicamento_id);
+    const qtd = Number(quantidade);
+    const preco = Number(preco_unitario);
+
+    if (!idMedicamento) {
       return res.status(400).json({ error: "Selecione um medicamento." });
     }
 
-    if (!quantidade || Number(quantidade) <= 0) {
+    if (Number.isNaN(qtd) || qtd <= 0) {
       return res.status(400).json({ error: "Informe uma quantidade válida." });
     }
 
-    if (Number(preco_unitario) < 0) {
+    if (Number.isNaN(preco) || preco < 0) {
       return res.status(400).json({ error: "Informe um preço válido." });
     }
 
     const medicamento = await getAsync(
       `SELECT * FROM medicamentos WHERE id = ? AND deletado = 0`,
-      [medicamento_id]
+      [idMedicamento]
     );
 
     if (!medicamento) {
       return res.status(404).json({ error: "Medicamento não encontrado." });
     }
-
-    const qtd = Number(quantidade);
-    const preco = Number(preco_unitario);
 
     if (Number(medicamento.quantidade) < qtd) {
       return res.status(400).json({ error: "Estoque insuficiente para registrar a venda." });
@@ -333,7 +362,7 @@ app.post("/vendas", async (req, res) => {
       )
       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
       `,
-      [medicamento_id, qtd, preco, total]
+      [idMedicamento, qtd, preco, total]
     );
 
     await runAsync(
@@ -344,7 +373,7 @@ app.post("/vendas", async (req, res) => {
         atualizado_em = CURRENT_TIMESTAMP
       WHERE id = ?
       `,
-      [qtd, medicamento_id]
+      [qtd, idMedicamento]
     );
 
     const venda = await getAsync(
@@ -368,6 +397,76 @@ app.post("/vendas", async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+app.get("/dashboard/resumo", async (req, res) => {
+  try {
+    const medicamentos = await allAsync(
+      `
+      SELECT *
+      FROM medicamentos
+      ORDER BY nome COLLATE NOCASE ASC
+      `
+    );
+
+    const vendas = await allAsync(
+      `
+      SELECT
+        v.id,
+        v.medicamento_id,
+        v.quantidade,
+        v.preco_unitario,
+        v.total,
+        v.vendido_em,
+        m.nome
+      FROM vendas v
+      LEFT JOIN medicamentos m ON m.id = v.medicamento_id
+      ORDER BY datetime(v.vendido_em) DESC, v.id DESC
+      `
+    );
+
+    const ativos = medicamentos.filter((m) => Number(m.deletado) !== 1);
+
+    const faturamentoTotal = vendas.reduce((sum, v) => sum + Number(v.total || 0), 0);
+    const totalItensVendidos = vendas.reduce((sum, v) => sum + Number(v.quantidade || 0), 0);
+    const estoqueTotal = ativos.reduce((sum, m) => sum + Number(m.quantidade || 0), 0);
+    const valorEstoque = ativos.reduce(
+      (sum, m) => sum + Number(m.quantidade || 0) * Number(m.preco || 0),
+      0
+    );
+
+    const topMap = new Map();
+    for (const venda of vendas) {
+      const nome = venda.nome || "Medicamento sem nome";
+      const current = topMap.get(nome) || { nome, quantidade: 0, total: 0 };
+      current.quantidade += Number(venda.quantidade || 0);
+      current.total += Number(venda.total || 0);
+      topMap.set(nome, current);
+    }
+
+    const ranking = [...topMap.values()].sort((a, b) => b.quantidade - a.quantidade);
+
+    res.json({
+      medicamentos,
+      vendas,
+      indicadores: {
+        faturamentoTotal,
+        totalItensVendidos,
+        estoqueTotal,
+        valorEstoque,
+        totalMedicamentosAtivos: ativos.length,
+        totalVendas: vendas.length,
+        maisVendido: ranking[0] || null,
+      },
+      ranking,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.use((req, res) => {
+  res.status(404).json({ error: "Rota não encontrada." });
 });
 
 app.listen(PORT, () => {

@@ -19,21 +19,18 @@
         <div class="brand brandOnlyLogo">
           <img src="logo-aurafarma.png" alt="Logo AuraFarma" class="brandLogoFull" />
           <p class="brandSlogan">Farme sua aura, evolua sua saúde</p>
-          </div>
         </div>
+      </div>
 
       <nav class="sideNav">
-        <button class="navItem active" data-view="dashboardView" id="navDashboard">
-          <span class="navIcon">📊</span>
+        <button class="navItem active" data-view="dashboardView" id="navDashboard" type="button">
           <span>Dashboard</span>
         </button>
 
-        <button class="navItem" data-view="medicamentosView" id="navMedicamentos">
-          <span class="navIcon">💊</span>
+        <button class="navItem" data-view="medicamentosView" id="navMedicamentos" type="button">
           <span>Medicamentos</span>
         </button>
       </nav>
-
     </aside>
 
     <main class="mainContent">
@@ -42,8 +39,8 @@
           <span class="eyebrow">AuraFarma</span>
           <h2>Farme sua aura, evolua sua saúde</h2>
           <p>
-            Gerencie medicamentos, acompanhe indicadores, monitore estoque e visualize
-            a operação da farmácia em uma experiência moderna e fluida.
+            Gerencie medicamentos, acompanhe indicadores, monitore estoque e visualize a operação da
+            farmácia em uma experiência moderna e fluida.
           </p>
         </div>
 
@@ -152,6 +149,54 @@
 
             <div id="topVendidos" class="rankingList">
               <div class="emptyMini">Sem dados de vendas até o momento.</div>
+            </div>
+          </article>
+
+          <article class="panelCard span2">
+            <div class="panelHeader">
+              <div>
+                <span class="sectionTag">Gráfico</span>
+                <h4>Top 5 medicamentos mais vendidos</h4>
+              </div>
+            </div>
+            <div class="chartBox">
+              <canvas id="chartTopVendidos"></canvas>
+            </div>
+          </article>
+
+          <article class="panelCard">
+            <div class="panelHeader">
+              <div>
+                <span class="sectionTag">Gráfico</span>
+                <h4>Estoque por forma farmacêutica</h4>
+              </div>
+            </div>
+            <div class="chartBox pieBox">
+              <canvas id="chartFormas"></canvas>
+            </div>
+          </article>
+
+          <article class="panelCard">
+            <div class="panelHeader">
+              <div>
+                <span class="sectionTag">Gráfico</span>
+                <h4>Vendas por dia</h4>
+              </div>
+            </div>
+            <div class="chartBox">
+              <canvas id="chartVendasPorDia"></canvas>
+            </div>
+          </article>
+
+          <article class="panelCard span2">
+            <div class="panelHeader">
+              <div>
+                <span class="sectionTag">Gráfico</span>
+                <h4>Estoque atual por medicamento</h4>
+              </div>
+            </div>
+            <div class="chartBox">
+              <canvas id="chartEstoqueMedicamentos"></canvas>
             </div>
           </article>
 
@@ -352,6 +397,7 @@
 
   <div id="toast" class="toast"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
